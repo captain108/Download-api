@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
-# Install deno
+# Install deno (needed by yt-dlp for YouTube)
 curl -fsSL https://deno.land/install.sh | sh
 
-# Persist deno path
-echo 'export DENO_INSTALL="$HOME/.deno"' >> ~/.bashrc
-echo 'export PATH="$DENO_INSTALL/bin:$PATH"' >> ~/.bashrc
+# Add deno to PATH
+export DENO_INSTALL="$HOME/.deno"
+export PATH="$DENO_INSTALL/bin:$PATH"
 
-source ~/.bashrc
-
+# Install python deps
 pip install -r requirements.txt
+
