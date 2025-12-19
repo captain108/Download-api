@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
+set -e
 
-# Install Deno
+# Install deno
 curl -fsSL https://deno.land/install.sh | sh
 
-# Add deno to PATH
-export DENO_INSTALL="$HOME/.deno"
-export PATH="$DENO_INSTALL/bin:$PATH"
+# Persist deno path
+echo 'export DENO_INSTALL="$HOME/.deno"' >> ~/.bashrc
+echo 'export PATH="$DENO_INSTALL/bin:$PATH"' >> ~/.bashrc
 
-# Install Python dependencies
+source ~/.bashrc
+
 pip install -r requirements.txt
