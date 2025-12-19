@@ -1,52 +1,94 @@
 import os
 import uuid
+import time
+import threading
 import subprocess
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-# =========================================================
-#   🚀 Multi Video Downloader API
-#   👑 Powered by @CAPTAINPAPAJI
-# =========================================================
+# ================= CONFIG ================= #
+
+API_KEY = "CHANGE_THIS_TO_YOUR_SECRET_KEY"
+DOWNLOAD_DIR = "/tmp"
+DELETE_AFTER_SECONDS = 900  # 15 minutes
+
+# ========================================== #
 
 app = FastAPI(
-    title="𝘾𝘼𝙋𝙏𝘼𝙄𝙉 𝙈𝙐𝙇𝙏𝙄 𝙑𝙄𝘿𝙀𝙊 𝘿𝙊𝙒𝙉𝙇𝙊𝘼𝘿𝙀𝙍 𝘼𝙋𝙄",
-    description="YouTube | Facebook | Instagram | Twitter | Snapchat\nCredit: @CAPTAINPAPAJI",
+    title="CAPTAIN Multi Video Downloader API",
+    description="Public Video Downloader API | Credit: @CAPTAINPAPAJI",
     version="1.0.0"
 )
-
-DOWNLOAD_DIR = "/tmp"
 
 class DownloadRequest(BaseModel):
     url: str
     quality: str = "best"
 
-@app.get("/")
-def home():
-    return {
-        "status": "API Running",
-        "credit": "@CAPTAINPAPAJI",
-        "supported": ["YT", "FB", "IG", "TWITTER", "SNAPCHAT"]
-    }
+# ---------- Auto delete file ---------- #
+def auto_delete(path: str):
+    time.sleep(DELETE_AFTER_SECONDS)
+    if os.path.exists(path):
+        os.remove(path)
 
+# ---------- Download endpoint ---------- #
 @app.post("/download")
-def download_video(data: DownloadRequest):
-    video_id = str(uuid.uuid4())
-    output = f"{DOWNLOAD_DIR}/{video_id}.%(ext)s"
+def download_video(
+    data: DownloadRequest,
+    x_api_key: str = Header(None)
+):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API Key")
 
-    command = ["yt-dlp", "-f", data.quality, "-o", output, data.url]
+    file_id = str(uuid.uuid4())
+    output_template = f"{DOWNLOAD_DIR}/{file_id}.%(ext)s"
+
+    cmd = [
+        "yt-dlp",
+        "--js-runtime", "deno",
+        "-f", data.quality,
+        "-o", output_template,
+        data.url
+    ]
 
     try:
-        subprocess.run(command, check=True)
-    except subprocess.CalledProcessError:
+        subprocess.run(cmd, check=True)
+    except Exception:
         raise HTTPException(status_code=400, detail="Download failed")
 
-    for file in os.listdir(DOWNLOAD_DIR):
-        if video_id in file:
-            return {
-                "status": "success",
-                "file": file,
-                "credit": "@CAPTAINPAPAJI"
-            }
+    filename = next(
+        (f for f in os.listdir(DOWNLOAD_DIR) if file_id in f),
+        None
+    )
 
-    raise HTTPException(status_code=500, detail="File not found")
+    if not filename:
+        raise HTTPException(status_code=500, detail="File not found")
+
+    file_path = f"{DOWNLOAD_DIR}/{filename}"
+
+    threading.Thread(
+        target=auto_delete,
+        args=(file_path,),
+        daemon=True
+    ).start()
+
+    return {
+        "status": "success",
+        "file": filename,
+        "file_url": f"https://YOUR_API_DOMAIN/file/{filename}",
+        "credit": "@CAPTAINPAPAJI"
+    }
+
+# ---------- File serve endpoint ---------- #
+@app.get("/file/{filename}")
+def serve_file(filename: str):
+    path = f"{DOWNLOAD_DIR}/{filename}"
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File expired or not found")
+
+    return FileResponse(
+        path,
+        media_type="video/mp4",
+        filename=filename
+    )
+
