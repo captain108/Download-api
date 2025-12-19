@@ -9,7 +9,8 @@ from pydantic import BaseModel
 
 # ================= CONFIG ================= #
 
-API_KEY = "CHANGE_THIS_TO_YOUR_SECRET_KEY"
+API_KEY = os.getenv("API_KEY")
+
 DOWNLOAD_DIR = "/tmp"
 DELETE_AFTER_SECONDS = 900  # 15 minutes
 
